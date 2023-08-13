@@ -4,12 +4,6 @@ Description: >
   serverlesspresso-exensibility
   Sample SAM Template for serverlesspresso-exensibility
 Resources:
-
-  ServerlesspressoEventBus:
-    Type: AWS::Events::EventBus
-    Properties:
-      Name: "Serverlesspresso"
-
   EventPlayer:
     Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
     Properties:
@@ -21,4 +15,3 @@ Outputs:
   EventPlayerArn:
     Description: "EventPlayer state machine ARN"
     Value: !Ref EventPlayer
-
