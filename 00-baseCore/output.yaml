@@ -1,15 +1,16 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
 Description: Serverlesspresso core stack.
+
 Parameters:
   AppName:
     Type: String
     Description: Application name (eg. serverlesspresso)
-    Default: Serverlesspresso
+    Default: 'Serverlesspresso'
   Service:
     Type: String
     Description: Service name (eg. core)
-    Default: core
+    Default: 'core'
   LogRetentionInDays:
     Type: Number
     Default: 14
@@ -29,98 +30,103 @@ Parameters:
   Source:
     Type: String
     Description: Event bus source by application
-    Default: awsserverlessda.serverlesspresso
+    Default: 'awsserverlessda.serverlesspresso'
+
 Globals:
   Api:
     Cors:
-      AllowOrigin: '''*'''
-      AllowHeaders: '''Content-Type'''
-      AllowMethods: '''GET,OPTIONS'''
+        AllowOrigin: "'*'"
+        AllowHeaders: "'Content-Type'"
+        AllowMethods: "'GET,OPTIONS'"
+
 Resources:
+##########################################
+# Custom event bus                       #
+##########################################
   ServerlesspressoEventBus:
     Type: AWS::Events::EventBus
     Properties:
-      Name: Serverlesspresso
+      Name: "Serverlesspresso"
+
   CoreEventBusNameParameter:
-    Type: AWS::SSM::Parameter
+    Type: "AWS::SSM::Parameter"
     Properties:
-      Name:
-        Fn::Sub: /${AppName}/${Service}/eventbusname
+      Name: !Sub /${AppName}/${Service}/eventbusname
       Description: EventBus Name
       Type: String
-      Value:
-        Ref: ServerlesspressoEventBus
+      Value: !Ref ServerlesspressoEventBus
+
   CoreEventBusARNParameter:
-    Type: AWS::SSM::Parameter
+    Type: "AWS::SSM::Parameter"
     Properties:
-      Name:
-        Fn::Sub: /${AppName}/${Service}/eventbusarn
+      Name: !Sub /${AppName}/${Service}/eventbusarn
       Description: EventBus ARN
       Type: String
-      Value:
-        Fn::Sub: ${ServerlesspressoEventBus.Arn}
+      Value: !Sub ${ServerlesspressoEventBus.Arn}
+
+#############################################
+# Resources for IoT Core realtime messaging #
+#############################################
   ServerlesspressoRealtime:
-    Type: AWS::IoT::Thing
+    Type: "AWS::IoT::Thing"
     Properties:
-      ThingName: serverlesspresso-realtime-workshop
+      ThingName: "serverlesspresso-realtime-workshop"
       AttributePayload:
         Attributes: {}
+
   IoTRealtimeParameter:
-    Type: AWS::SSM::Parameter
+    Type: "AWS::SSM::Parameter"
     Properties:
-      Name:
-        Fn::Sub: /${AppName}/${Service}/realtime
+      Name: !Sub /${AppName}/${Service}/realtime
       Description: IoTRealtime URL
       Type: String
-      Value:
-        Fn::GetAtt:
-        - IotEndpoint
-        - IotEndpointAddress
+      Value: !GetAtt IotEndpoint.IotEndpointAddress
+
   GetIoTEndpointFunction:
-    Type: AWS::Serverless::Function
+    Type: 'AWS::Serverless::Function'
     Properties:
       Handler: GetIoTEndpoint.handler
       Runtime: nodejs14.x
-      CodeUri: s3://serverlesspresso-central-workshop-template/5f352d3ba76f2b06d0afc6a451d7c018
+      CodeUri: ../backends/0-core/code/GetIoTEndpoint
       MemorySize: 128
       Timeout: 3
       Policies:
-      - Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Action:
-          - iot:DescribeEndpoint
-          Resource:
-          - '*'
+        - Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+              - iot:DescribeEndpoint
+            Resource:
+              - '*'
+
   GetIoTEndpointLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName:
-        Fn::Sub: /aws/lambda/${GetIoTEndpointFunction}
-      RetentionInDays:
-        Ref: LogRetentionInDays
+      LogGroupName: !Sub "/aws/lambda/${GetIoTEndpointFunction}"
+      RetentionInDays: !Ref LogRetentionInDays
+
   IotEndpoint:
-    Type: Custom::IotEndpoint
+    Type: 'Custom::IotEndpoint'
     Properties:
-      ServiceToken:
-        Fn::GetAtt:
-        - GetIoTEndpointFunction
-        - Arn
+      ServiceToken: !GetAtt GetIoTEndpointFunction.Arn
+
+##########################################
+# Cognito Resources                      #
+##########################################
   UserPool:
-    Type: AWS::Cognito::UserPool
+    Type: "AWS::Cognito::UserPool"
     Properties:
       UserPoolName: ServerlesspressoUserPool
       AutoVerifiedAttributes:
       - email
-      EmailVerificationMessage: 'Here is your Serverlesspresso workshop verification
-        code: {####}.'
-      EmailVerificationSubject: Serverlesspresso workshop code
-      MfaConfiguration: 'OFF'
+      EmailVerificationMessage: "Here is your Serverlesspresso workshop verification code: {####}."
+      EmailVerificationSubject: "Serverlesspresso workshop code"
+      MfaConfiguration: "OFF"
       Schema:
-      - Name: email
-        AttributeDataType: String
-        Mutable: false
-        Required: true
+        - Name: email
+          AttributeDataType: String
+          Mutable: false
+          Required: true
       Policies:
         PasswordPolicy:
           MinimumLength: 6
@@ -128,176 +134,127 @@ Resources:
           RequireNumbers: false
           RequireSymbols: false
           RequireUppercase: false
+      # UsernameAttributes:
+      #   - phone_number
+
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
       GenerateSecret: false
-      UserPoolId:
-        Ref: UserPool
+      UserPoolId: !Ref UserPool
+
   UserPoolParameter:
-    Type: AWS::SSM::Parameter
+    Type: "AWS::SSM::Parameter"
     Properties:
-      Name:
-        Fn::Sub: /${AppName}/${Service}/userpool
+      Name: !Sub /${AppName}/${Service}/userpool
       Description: UserPool ID
       Type: String
-      Value:
-        Ref: UserPool
+      Value: !Ref UserPool
+
   UserPoolClientParameter:
-    Type: AWS::SSM::Parameter
+    Type: "AWS::SSM::Parameter"
     Properties:
-      Name:
-        Fn::Sub: /${AppName}/${Service}/userpoolclient
+      Name: !Sub /${AppName}/${Service}/userpoolclient
       Description: UserPool Client
       Type: String
-      Value:
-        Ref: UserPoolClient
+      Value: !Ref UserPoolClient
+
+  # Creates a federated Identity pool
   IdentityPool:
-    Type: AWS::Cognito::IdentityPool
+    Type: "AWS::Cognito::IdentityPool"
     Properties:
       IdentityPoolName: ServerlesspressoIdentityPool
       AllowUnauthenticatedIdentities: true
       CognitoIdentityProviders:
-      - ClientId:
-          Ref: UserPoolClient
-        ProviderName:
-          Fn::GetAtt:
-          - UserPool
-          - ProviderName
+        - ClientId: !Ref UserPoolClient
+          ProviderName: !GetAtt UserPool.ProviderName
+
+  # Create a role for unauthorized access to AWS resources.
   CognitoUnAuthorizedRole:
-    Type: AWS::IAM::Role
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Effect: Allow
-          Principal:
-            Federated: cognito-identity.amazonaws.com
-          Action:
-          - sts:AssumeRoleWithWebIdentity
-          Condition:
-            StringEquals:
-              cognito-identity.amazonaws.com:aud:
-                Ref: IdentityPool
-            ForAnyValue:StringLike:
-              cognito-identity.amazonaws.com:amr: unauthenticated
+          - Effect: "Allow"
+            Principal:
+              Federated: "cognito-identity.amazonaws.com"
+            Action:
+              - "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref IdentityPool
+              "ForAnyValue:StringLike":
+                "cognito-identity.amazonaws.com:amr": unauthenticated
       Policies:
-      - PolicyName: CognitoUnauthorizedPolicy
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: Allow
-            Action:
-            - cognito-sync:*
-            Resource:
-              Fn::Join:
-              - ''
-              - - 'arn:aws:cognito-sync:'
-                - Ref: AWS::Region
-                - ':'
-                - Ref: AWS::AccountId
-                - :identitypool/
-                - Ref: IdentityPool
-          - Effect: Allow
-            Action:
-            - iot:Connect
-            Resource:
-              Fn::Join:
-              - ''
-              - - 'arn:aws:iot:'
-                - Ref: AWS::Region
-                - ':'
-                - Ref: AWS::AccountId
-                - :client/serverlesspresso-*
-          - Effect: Allow
-            Action:
-            - iot:Subscribe
-            Resource: '*'
-          - Effect: Allow
-            Action:
-            - iot:Receive
-            Resource:
-              Fn::Join:
-              - ''
-              - - 'arn:aws:iot:'
-                - Ref: AWS::Region
-                - ':'
-                - Ref: AWS::AccountId
-                - :topic/*
+        - PolicyName: "CognitoUnauthorizedPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "cognito-sync:*"
+                Resource: !Join [ "", [ "arn:aws:cognito-sync:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":identitypool/", !Ref IdentityPool] ]
+              - Effect: Allow
+                Action:
+                  - iot:Connect
+                Resource: !Join [ "", [ "arn:aws:iot:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":client/serverlesspresso-*" ] ]
+              - Effect: Allow
+                Action:
+                  - iot:Subscribe
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - iot:Receive
+                Resource: !Join [ "", [ "arn:aws:iot:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":topic/*" ] ]
+
+  # Create a role for authorized acces to AWS resources.
   CognitoAuthorizedRole:
-    Type: AWS::IAM::Role
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Effect: Allow
-          Principal:
-            Federated: cognito-identity.amazonaws.com
-          Action:
-          - sts:AssumeRoleWithWebIdentity
-          Condition:
-            StringEquals:
-              cognito-identity.amazonaws.com:aud:
-                Ref: IdentityPool
-            ForAnyValue:StringLike:
-              cognito-identity.amazonaws.com:amr: authenticated
+          - Effect: "Allow"
+            Principal:
+              Federated: "cognito-identity.amazonaws.com"
+            Action:
+              - "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref IdentityPool
+              "ForAnyValue:StringLike":
+                "cognito-identity.amazonaws.com:amr": authenticated
       Policies:
-      - PolicyName: CognitoAuthorizedPolicy
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-          - Effect: Allow
-            Action:
-            - cognito-sync:*
-            Resource:
-              Fn::Join:
-              - ''
-              - - 'arn:aws:cognito-sync:'
-                - Ref: AWS::Region
-                - ':'
-                - Ref: AWS::AccountId
-                - :identitypool/
-                - Ref: IdentityPool
-          - Effect: Allow
-            Action:
-            - iot:Connect
-            Resource:
-              Fn::Join:
-              - ''
-              - - 'arn:aws:iot:'
-                - Ref: AWS::Region
-                - ':'
-                - Ref: AWS::AccountId
-                - :client/serverlesspresso-*
-          - Effect: Allow
-            Action:
-            - iot:Subscribe
-            Resource: '*'
-          - Effect: Allow
-            Action:
-            - iot:Receive
-            Resource:
-              Fn::Join:
-              - ''
-              - - 'arn:aws:iot:'
-                - Ref: AWS::Region
-                - ':'
-                - Ref: AWS::AccountId
-                - :topic/*
+        - PolicyName: "CognitoAuthorizedPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "cognito-sync:*"
+                Resource: !Join [ "", [ "arn:aws:cognito-sync:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":identitypool/", !Ref IdentityPool] ]
+              - Effect: Allow
+                Action:
+                  - iot:Connect
+                Resource: !Join [ "", [ "arn:aws:iot:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":client/serverlesspresso-*" ] ]
+              - Effect: Allow
+                Action:
+                  - iot:Subscribe
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - iot:Receive
+                Resource: !Join [ "", [ "arn:aws:iot:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":topic/*" ] ]
+  # Assigns the roles to the Identity Pool
   IdentityPoolRoleMapping:
-    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Type: "AWS::Cognito::IdentityPoolRoleAttachment"
     Properties:
-      IdentityPoolId:
-        Ref: IdentityPool
+      IdentityPoolId: !Ref IdentityPool
       Roles:
-        authenticated:
-          Fn::GetAtt:
-          - CognitoAuthorizedRole
-          - Arn
-        unauthenticated:
-          Fn::GetAtt:
-          - CognitoUnAuthorizedRole
-          - Arn
+        authenticated: !GetAtt CognitoAuthorizedRole.Arn
+        unauthenticated: !GetAtt CognitoUnAuthorizedRole.Arn
+
   CountingTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -309,114 +266,116 @@ Resources:
       - AttributeName: PK
         KeyType: HASH
       BillingMode: PAY_PER_REQUEST
+
+##########################################
+# Publisher service                      #
+##########################################
+
   PublisherFunctionAdmin:
     Type: AWS::Serverless::Function
     Description: Serverlesspresso Publisher. Invoked by EventBridge rule
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/4952ed6cfe2b9da6083121d367a90bcd
+      CodeUri: ../backends/6-publisher-service/code/
       Handler: publishToIOT.handler
       Runtime: nodejs14.x
       Timeout: 3
       Environment:
         Variables:
-          IOT_DATA_ENDPOINT:
-            Fn::GetAtt:
-            - IotEndpoint
-            - IotEndpointAddress
-          IOT_TOPIC: serverlesspresso-admin
+          IOT_DATA_ENDPOINT: !GetAtt IotEndpoint.IotEndpointAddress
+          IOT_TOPIC: 'serverlesspresso-admin'
       Policies:
       - Statement:
-        - Effect: Allow
-          Resource: arn:aws:iot:*
-          Action:
-          - iot:Connect
-          - iot:Publish
+          - Effect: Allow
+            Resource: 'arn:aws:iot:*'
+            Action:
+              - iot:Connect
+              - iot:Publish
       Events:
         Trigger:
           Type: EventBridgeRule
           Properties:
-            EventBusName: Serverlesspresso
+            EventBusName: "Serverlesspresso"
             Pattern:
               source:
-              - Ref: Source
+                - !Ref Source
               detail-type:
-              - prefix: OrderManager.
-              - prefix: OrderProcessor.
-              - prefix: Validator.
-              - prefix: ConfigService.
+                - prefix: 'OrderManager.'
+                - prefix: 'OrderProcessor.'
+                - prefix: 'Validator.'
+                - prefix: 'ConfigService.'
+
   PublisherFunctionUser:
     Type: AWS::Serverless::Function
     Description: Serverlesspresso Publisher. Invoked by EventBridge rule
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/4952ed6cfe2b9da6083121d367a90bcd
+      CodeUri: ../backends/6-publisher-service/code/
       Handler: publishToIOTuserTopic.handler
       Runtime: nodejs14.x
       Timeout: 3
       Environment:
         Variables:
-          IOT_DATA_ENDPOINT:
-            Fn::GetAtt:
-            - IotEndpoint
-            - IotEndpointAddress
-          IOT_TOPIC: serverlesspresso-user-
+          IOT_DATA_ENDPOINT: !GetAtt IotEndpoint.IotEndpointAddress
+          IOT_TOPIC: 'serverlesspresso-user-'
       Policies:
       - Statement:
-        - Effect: Allow
-          Resource: arn:aws:iot:*
-          Action:
-          - iot:Connect
-          - iot:Publish
+          - Effect: Allow
+            Resource: 'arn:aws:iot:*'
+            Action:
+              - iot:Connect
+              - iot:Publish
       Events:
         OrderManagerEvents:
           Type: EventBridgeRule
           Properties:
-            EventBusName: Serverlesspresso
+            EventBusName: "Serverlesspresso"
             Pattern:
               source:
-              - Ref: Source
+                - !Ref Source
               detail-type:
-              - prefix: OrderManager.
+                - prefix: 'OrderManager.'
         OrderProcessorEvents:
           Type: EventBridgeRule
           Properties:
-            EventBusName: Serverlesspresso
+            EventBusName: "Serverlesspresso"
             Pattern:
               source:
-              - Ref: Source
+                - !Ref Source
               detail-type:
-              - prefix: OrderProcessor.
+                - prefix: 'OrderProcessor.'
+
   PublisherFunctionConfig:
     Type: AWS::Serverless::Function
     Description: Serverlesspresso Publisher. Invoked by EventBridge rule
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/4952ed6cfe2b9da6083121d367a90bcd
+      CodeUri: ../backends/6-publisher-service/code/
       Handler: publishToIOT.handler
       Runtime: nodejs14.x
       Timeout: 3
       Environment:
         Variables:
-          IOT_DATA_ENDPOINT:
-            Fn::GetAtt:
-            - IotEndpoint
-            - IotEndpointAddress
-          IOT_TOPIC: serverlesspresso-config
+          IOT_DATA_ENDPOINT: !GetAtt IotEndpoint.IotEndpointAddress
+          IOT_TOPIC: 'serverlesspresso-config'
       Policies:
       - Statement:
-        - Effect: Allow
-          Resource: arn:aws:iot:*
-          Action:
-          - iot:Connect
-          - iot:Publish
+          - Effect: Allow
+            Resource: 'arn:aws:iot:*'
+            Action:
+              - iot:Connect
+              - iot:Publish
       Events:
         TriggerValidator:
           Type: EventBridgeRule
           Properties:
-            EventBusName: Serverlesspresso
+            EventBusName: "Serverlesspresso"
             Pattern:
               source:
-              - Ref: Source
+                - !Ref Source
               detail-type:
-              - prefix: ConfigService.
+                - prefix: 'ConfigService.'
+
+##########################################
+# Config service                         #
+##########################################
   ConfigTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -430,87 +389,104 @@ Resources:
       BillingMode: PAY_PER_REQUEST
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
+
   RESTApConfigService:
     Type: AWS::Serverless::Api
     Properties:
       StageName: Prod
       DefinitionBody:
-        Fn::Transform:
-          Name: AWS::Include
+        'Fn::Transform':
+          Name: 'AWS::Include'
           Parameters:
-            Location: s3://serverlesspresso-central-workshop-template/29a11c54eedac3da7907b35628fbf004
+            Location: '../backends/2-config-service/RestAPIs/api.yaml'
+
   ConfigChangedFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/1d046acb8a29b951017091a612a17b3c
+      CodeUri: ../backends/2-config-service/code
       Handler: configChanged.handler
       Runtime: nodejs14.x
       Timeout: 15
       MemorySize: 128
       Environment:
         Variables:
-          EventBusName:
-            Ref: ServerlesspressoEventBus
-          Source:
-            Ref: Source
+          EventBusName: !Ref ServerlesspressoEventBus
+          Source: !Ref Source
       Policies:
-      - DynamoDBReadPolicy:
-          TableName:
-            Ref: ConfigTable
-      - EventBridgePutEventsPolicy:
-          EventBusName:
-            Ref: ServerlesspressoEventBus
+        - DynamoDBReadPolicy:
+            TableName: !Ref ConfigTable
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref ServerlesspressoEventBus
       Events:
         Stream:
           Type: DynamoDB
           Properties:
-            Stream:
-              Fn::GetAtt:
-              - ConfigTable
-              - StreamArn
+            Stream: !GetAtt ConfigTable.StreamArn
             BatchSize: 1
             StartingPosition: TRIM_HORIZON
+
+# StoreFunction:
+#    This allows teh store to be opened or closed, this is a direct integration from APIGW->DynamoDB
+#    eg. PUT /Store?state=false
+
+# GetConfigFunction:
+#  Retries all items in the config table
+#  eg. GET /config
+
+# GetAdminConfigFunction:
+#  Retries all items in the config table
+#  eg. GET /admin-config
+
+
+
+##########################################################################
+#   Config service API Role                                                #
+##########################################################################
   ConfigRESTApiRole:
-    Type: AWS::IAM::Role
+    Type: 'AWS::IAM::Role'
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - apigateway.amazonaws.com
-          Action:
-          - sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service:
+              - apigateway.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
       Policies:
       - PolicyName: DynamoDBinteraction
         PolicyDocument:
           Version: 2012-10-17
           Statement:
-          - Effect: Allow
-            Action:
-            - dynamodb:Scan
-            - dynamodb:GetItem
-            - dynamodb:UpdateItem
-            Resource:
-              Fn::GetAtt:
-              - ConfigTable
-              - Arn
-          - Effect: Allow
-            Action:
-            - dynamodb:Query
-            Resource:
-              Fn::Sub:
-              - ${tableArn}${index}
-              - tableArn:
-                  Fn::GetAtt:
-                  - ConfigTable
-                  - Arn
-                index: /index/*
+            - Effect: "Allow"
+              Action:
+              - dynamodb:Scan
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+              Resource: !GetAtt ConfigTable.Arn
+            - Effect: "Allow"
+              Action:
+              - dynamodb:Query
+              Resource:
+                Fn::Sub:
+                - ${tableArn}${index}
+                - {tableArn: !GetAtt ConfigTable.Arn, index: "/index/*"}
+
+##########################################
+#     < /   END Config service    >      #
+##########################################
+
+
+##########################################
+#  Validator Service                     #
+##########################################
+
+
   GetQRcodeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/4499e700bb05e2e83c2b6a5b3f2ee2ec
+      CodeUri: ../backends/9-validator/code
       Handler: getCode.handler
       Runtime: nodejs14.x
       Timeout: 15
@@ -518,38 +494,31 @@ Resources:
       Environment:
         Variables:
           AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
-          TableName:
-            Ref: ValidatorTable
-          TimeInterval:
-            Ref: TimeInterval
-          CodeLength:
-            Ref: CodeLength
-          TokensPerBucket:
-            Ref: TokensPerBucket
-          BusName:
-            Ref: ServerlesspressoEventBus
-          Source:
-            Ref: Source
+          TableName: !Ref ValidatorTable
+          TimeInterval: !Ref TimeInterval
+          CodeLength: !Ref CodeLength
+          TokensPerBucket: !Ref TokensPerBucket
+          BusName: !Ref ServerlesspressoEventBus
+          Source: !Ref Source
       Policies:
-      - DynamoDBCrudPolicy:
-          TableName:
-            Ref: ValidatorTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ValidatorTable
       Events:
         GetQrCode:
           Type: Api
           Properties:
-            RestApiId:
-              Ref: RESTApiValidatorService
+            RestApiId: !Ref RESTApiValidatorService
             Path: /qr-code
             Method: get
             Auth:
               Authorizer: MyCognitoAuthorizor
               AuthorizationScopes:
-              - aws.cognito.signin.user.admin
+                - aws.cognito.signin.user.admin
+
   VerifyQRcodeFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/4499e700bb05e2e83c2b6a5b3f2ee2ec
+      CodeUri: ../backends/9-validator/code
       Handler: verifyCode.handler
       Runtime: nodejs14.x
       Timeout: 10
@@ -557,55 +526,49 @@ Resources:
       Environment:
         Variables:
           AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
-          TableName:
-            Ref: ValidatorTable
-          TimeInterval:
-            Ref: TimeInterval
-          CodeLength:
-            Ref: CodeLength
-          TokensPerBucket:
-            Ref: TokensPerBucket
-          BusName:
-            Ref: ServerlesspressoEventBus
-          Source:
-            Ref: Source
+          TableName: !Ref ValidatorTable
+          TimeInterval: !Ref TimeInterval
+          CodeLength: !Ref CodeLength
+          TokensPerBucket: !Ref TokensPerBucket
+          BusName: !Ref ServerlesspressoEventBus
+          Source: !Ref Source
       Policies:
-      - EventBridgePutEventsPolicy:
-          EventBusName:
-            Ref: ServerlesspressoEventBus
-      - DynamoDBCrudPolicy:
-          TableName:
-            Ref: ValidatorTable
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref ServerlesspressoEventBus
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ValidatorTable
       Events:
         GetQrCode:
           Type: Api
           Properties:
-            RestApiId:
-              Ref: RESTApiValidatorService
+            RestApiId: !Ref RESTApiValidatorService
             Path: /qr-code
             Method: POST
             Auth:
               Authorizer: MyCognitoAuthorizor
               AuthorizationScopes:
-              - aws.cognito.signin.user.admin
+                - aws.cognito.signin.user.admin
+
   RESTApiValidatorService:
     Type: AWS::Serverless::Api
     Name: RESTApiValidatorService
     Properties:
       StageName: Prod
       Cors:
-        AllowOrigin: '''*'''
-        AllowHeaders: '''*'''
-        AllowMethods: '''GET,POST,OPTIONS'''
+        AllowOrigin: "'*'"
+        AllowHeaders: "'*'"
+        AllowMethods: "'GET,POST,OPTIONS'"
       Auth:
-        DefaultAuthorizer: MyCognitoAuthorizor
-        AddDefaultAuthorizerToCorsPreflight: false
+        DefaultAuthorizer: MyCognitoAuthorizor # OPTIONAL
+        AddDefaultAuthorizerToCorsPreflight: FALSE
         Authorizers:
           MyCognitoAuthorizor:
-            UserPoolArn:
-              Fn::GetAtt:
-              - UserPool
-              - Arn
+            # Can also accept an array
+            UserPoolArn: !GetAtt UserPool.Arn
+
+#   Validator  API Role  #
+
+  ## DynamoDB table
   ValidatorTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -619,113 +582,120 @@ Resources:
       BillingMode: PAY_PER_REQUEST
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
+
+#############################################
+# < /END Validator service > #
+#############################################
+
+   # Lambda function for initializing DDB table content
   FillDatabasesCustomResource:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/f52775053d6fd2e701dcb924bb328120
+      CodeUri: initDB
       Handler: app.handler
       Runtime: nodejs14.x
       Timeout: 15
       MemorySize: 128
       Environment:
         Variables:
-          configTable:
-            Ref: ConfigTable
-          countingTable:
-            Ref: CountingTable
+          configTable: !Ref ConfigTable
+          countingTable: !Ref CountingTable
       Policies:
-      - DynamoDBCrudPolicy:
-          TableName:
-            Ref: ConfigTable
-      - DynamoDBCrudPolicy:
-          TableName:
-            Ref: CountingTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ConfigTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CountingTable
+
+   #Triggers Lambda function after stack creation
   DeploymentCustomResourcePrefil:
     Type: AWS::CloudFormation::CustomResource
     Properties:
-      ServiceToken:
-        Fn::GetAtt:
-        - FillDatabasesCustomResource
-        - Arn
+      ServiceToken: !GetAtt FillDatabasesCustomResource.Arn
+
+##########################################################################
+#  STEP FUNCTION LOG GROUP                                               #
+##########################################################################
   StateMachineLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName:
-        Fn::Join:
-        - /
-        - - stepfunctions
-          - StateMachineExpressSync
+      LogGroupName: !Join [ "/", [ "stepfunctions", StateMachineExpressSync]]
+
+#############################################
+# < Order Manager  service > #
+#############################################
+
+# Order manager Lambda Functions ##
+
+
+
+  #The function that first adds an iteom to the order DB.. Student will ad teh event to trigger this
   ValidatorNewOrderFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/9d6d8e0d73867362d859d3498994ed1e
+      CodeUri: ../backends/5-order-manager/functions/newOrder
       Handler: app.handler
       Runtime: nodejs14.x
       Timeout: 15
       MemorySize: 128
       Environment:
         Variables:
-          TableName:
-            Ref: OrderTable
+          TableName: !Ref OrderTable
       Policies:
-      - DynamoDBWritePolicy:
-          TableName:
-            Ref: OrderTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref OrderTable
   SanitizeOrderLambda:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/eeb4f2b915040fc25fe13558c56944b2
+      CodeUri: ../backends/5-order-manager/functions/sanitize
       Handler: app.handler
       Runtime: nodejs14.x
       Timeout: 20
       MemorySize: 128
+
   GetOrderByIdFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/8c33502c44f9b6c736d0e3e4dba31258
+      CodeUri: ../backends/5-order-manager/functions/getById
       Handler: app.handler
       Runtime: nodejs14.x
       Timeout: 15
       MemorySize: 128
+
   WorkFlowStarted:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/4a022ec7293e9f833b5df0aa6eafd4a4
+      CodeUri: ../backends/5-order-manager/functions/workflowStarted
       Handler: app.handler
       Runtime: nodejs14.x
       Timeout: 15
       MemorySize: 128
       Environment:
         Variables:
-          TableName:
-            Ref: OrderTable
+          TableName: !Ref OrderTable
       Policies:
-      - DynamoDBWritePolicy:
-          TableName:
-            Ref: OrderTable
+        - DynamoDBWritePolicy:
+              TableName: !Ref OrderTable
+
   WaitingCompletion:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: s3://serverlesspresso-central-workshop-template/3855060f065a150c6da694ebbd20f99a
+      CodeUri: ../backends/5-order-manager/functions/waitingCompletion
       Handler: app.handler
       Runtime: nodejs14.x
       Timeout: 15
       MemorySize: 128
       Environment:
         Variables:
-          TableName:
-            Ref: OrderTable
-          BusName:
-            Ref: ServerlesspressoEventBus
-          Source:
-            Ref: Source
+          TableName: !Ref OrderTable
+          BusName: !Ref ServerlesspressoEventBus
+          Source: !Ref Source
       Policies:
-      - DynamoDBWritePolicy:
-          TableName:
-            Ref: OrderTable
-      - EventBridgePutEventsPolicy:
-          EventBusName:
-            Ref: ServerlesspressoEventBus
+        - DynamoDBWritePolicy:
+              TableName: !Ref OrderTable
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref ServerlesspressoEventBus
+
+#   Order Table - DynamoDB             #
   OrderTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -741,184 +711,187 @@ Resources:
         AttributeType: S
       - AttributeName: USERID
         AttributeType: S
+
       KeySchema:
       - AttributeName: PK
         KeyType: HASH
       - AttributeName: SK
         KeyType: RANGE
+
       LocalSecondaryIndexes:
-      - IndexName: LSI-timestamp
-        KeySchema:
-        - AttributeName: PK
-          KeyType: HASH
-        - AttributeName: TS
-          KeyType: RANGE
-        Projection:
-          ProjectionType: ALL
+        -
+          IndexName: LSI-timestamp
+          KeySchema:
+            -
+              AttributeName: PK
+              KeyType: HASH
+            -
+              AttributeName: TS
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
       GlobalSecondaryIndexes:
-      - IndexName: GSI-status
-        KeySchema:
-        - AttributeName: ORDERSTATE
-          KeyType: HASH
-        - AttributeName: SK
-          KeyType: RANGE
-        Projection:
-          ProjectionType: ALL
-      - IndexName: GSI-userId
-        KeySchema:
-        - AttributeName: USERID
-          KeyType: HASH
-        - AttributeName: SK
-          KeyType: RANGE
-        Projection:
-          ProjectionType: ALL
+        -
+          IndexName: GSI-status
+          KeySchema:
+            -
+              AttributeName: ORDERSTATE
+              KeyType: HASH
+            -
+              AttributeName: SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+        -
+          IndexName: GSI-userId
+          KeySchema:
+            -
+              AttributeName: USERID
+              KeyType: HASH
+            -
+              AttributeName: SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
       BillingMode: PAY_PER_REQUEST
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
+
+#   Order Manager REST API                                               #
   RESTApiForOrderManager:
     Type: AWS::Serverless::Api
     Properties:
       StageName: Prod
       DefinitionBody:
-        Fn::Transform:
-          Name: AWS::Include
+        'Fn::Transform':
+          Name: 'AWS::Include'
           Parameters:
-            Location: s3://serverlesspresso-central-workshop-template/055da658f32be5e00466cd0cb0da536c
+            Location: '../backends/5-order-manager/RestAPIs/api.yaml'
+
+
+#   Order Manager API Role                                                #
   RESTApiRole:
-    Type: AWS::IAM::Role
+    Type: 'AWS::IAM::Role'
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - apigateway.amazonaws.com
-          Action:
-          - sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service:
+              - apigateway.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
       Policies:
       - PolicyName: DynamoDBinteraction
         PolicyDocument:
           Version: 2012-10-17
           Statement:
-          - Effect: Allow
-            Action:
-            - states:StartExecution
-            Resource:
-              Fn::GetAtt:
-              - OrderManagerStateMachine
-              - Arn
-          - Effect: Allow
-            Action:
-            - dynamodb:GetItem
-            Resource:
-              Fn::GetAtt:
-              - OrderTable
-              - Arn
-          - Effect: Allow
-            Action:
-            - dynamodb:Query
-            Resource:
-              Fn::Sub:
-              - ${tableArn}${index}
-              - tableArn:
-                  Fn::GetAtt:
-                  - OrderTable
-                  - Arn
-                index: /index/*
+            - Effect: "Allow"
+              Action:
+              - states:StartExecution
+              Resource: !GetAtt 02OrderManagerStateMachine.Arn
+            - Effect: "Allow"
+              Action:
+              - dynamodb:GetItem
+              Resource: !GetAtt OrderTable.Arn
+            - Effect: "Allow"
+              Action:
+              - dynamodb:Query
+              Resource:
+                Fn::Sub:
+                - ${tableArn}${index}
+                - {tableArn: !GetAtt OrderTable.Arn, index: "/index/*"}
+
+  #  Order Manager SFN                                                   #
   OrderManagerStateMachine:
-    Type: AWS::Serverless::StateMachine
+    Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
     Properties:
-      DefinitionUri:
-        Bucket: serverlesspresso-central-workshop-template
-        Key: a167d5f1050d81aefd825f6767d7c510
+      DefinitionUri: ../backends/5-order-manager/statemachine/om.asl.json
       DefinitionSubstitutions:
-        OMTable:
-          Ref: OrderTable
-        ConfigTable:
-          Ref: ConfigTable
-        SanitizeOrderLambda:
-          Ref: SanitizeOrderLambda
-      Policies:
-      - EventBridgePutEventsPolicy:
-          EventBusName:
-            Ref: ServerlesspressoEventBus
-      - LambdaInvokePolicy:
-          FunctionName:
-            Ref: SanitizeOrderLambda
-      - DynamoDBReadPolicy:
-          TableName:
-            Ref: ConfigTable
-      - DynamoDBWritePolicy:
-          TableName:
-            Ref: OrderTable
-      - DynamoDBWritePolicy:
-          TableName:
-            Ref: OrderTable
-      - Statement:
-        - Sid: SendTaskSuccess
-          Effect: Allow
-          Action:
-          - states:SendTaskSuccess
-          Resource: '*'
+        OMTable: !Ref OrderTable
+        ConfigTable: !Ref ConfigTable
+        SanitizeOrderLambda: !Ref SanitizeOrderLambda
+      Policies: # Find out more about SAM policy templates: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-policy-templates.html
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref ServerlesspressoEventBus
+        - LambdaInvokePolicy:
+            FunctionName: !Ref SanitizeOrderLambda
+        - DynamoDBReadPolicy:
+            TableName: !Ref ConfigTable
+        - DynamoDBWritePolicy:
+            TableName: !Ref OrderTable
+        - Statement:
+          - Sid: SendTaskSuccess
+            Effect: Allow
+            Action:
+            - states:SendTaskSuccess
+            Resource: '*'
+
+#############################################
+# < /Order Manager  service > #
+#############################################
+
+##########################################
+# Order Processor IAM ROLE               #
+##########################################
   OrderProcessorRole:
-    Type: AWS::IAM::Role
+    Type: "AWS::IAM::Role"
     Properties:
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - states.amazonaws.com
-          Action:
-          - sts:AssumeRole
-      Path: /
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "states.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
   RolePolicies:
-    Type: AWS::IAM::Policy
+    Type: "AWS::IAM::Policy"
     Properties:
-      PolicyName: orderProcessorWFPolicy
+      PolicyName: "orderProcessorWFPolicy"
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
-        - Effect: Allow
-          Action: events:PutEvents
-          Resource:
-            Fn::GetAtt:
-            - ServerlesspressoEventBus
-            - Arn
-        - Effect: Allow
-          Action: dynamodb:GetItem
-          Resource:
-            Fn::GetAtt:
-            - ConfigTable
-            - Arn
-        - Effect: Allow
-          Action: dynamodb:UpdateItem
-          Resource:
-            Fn::GetAtt:
-            - ConfigTable
-            - Arn
-        - Effect: Allow
-          Action: dynamodb:UpdateItem
-          Resource:
-            Fn::GetAtt:
-            - CountingTable
-            - Arn
-        - Effect: Allow
-          Action: states:ListExecutions
-          Resource:
-            Fn::Join:
-            - ''
-            - - 'arn:aws:states:'
-              - Ref: AWS::Region
-              - ':'
-              - Ref: AWS::AccountId
-              - ':stateMachine:'
-              - '*'
+          - Effect: "Allow"
+            Action: "events:PutEvents"
+            Resource: !GetAtt ServerlesspressoEventBus.Arn
+          - Effect: "Allow"
+            Action: "dynamodb:GetItem"
+            Resource: !GetAtt ConfigTable.Arn
+          - Effect: "Allow"
+            Action: "dynamodb:UpdateItem"
+            Resource: !GetAtt ConfigTable.Arn
+          - Effect: "Allow"
+            Action: "dynamodb:UpdateItem"
+            Resource: !GetAtt CountingTable.Arn
+          - Effect: "Allow"
+            Action: "states:ListExecutions"
+            Resource: !Join [ "", [ "arn:aws:states:", !Ref "AWS::Region", ":", !Ref "AWS::AccountId", ":stateMachine:", "*"] ]
       Roles:
-      - Ref: OrderProcessorRole
+        - Ref: "OrderProcessorRole"
+
+##########################################
+# Outputs                                #
+##########################################
+
 Outputs:
+
+  DisplayAppURI:
+    Description: The URL for the Display App
+    Value: !Sub  
+      - "https://workshop-display.serverlesscoffee.com/?region=${AWS::Region}&userPoolId=${UserPoolID}&userPoolWebClientId=${UserPoolWebClientId}&orderManagerEndpoint=${OrderManagerEndpoint}&APIGWEndpointValidatorService=${APIGWEndpointValidatorService}&APIGWEndpointConfigService=${APIGWEndpointConfigService}"
+      - UserPoolID: !Ref UserPool
+        UserPoolWebClientId: !Ref UserPoolClient
+        OrderManagerEndpoint:           !Sub "https://${RESTApiForOrderManager}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+        APIGWEndpointValidatorService:  !Sub "https://${RESTApiValidatorService}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+        APIGWEndpointConfigService:     !Sub "https://${RESTApConfigService}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
   UserPoolID:
     Description: UserPool ID
     Value:
