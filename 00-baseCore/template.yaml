@@ -135,8 +135,7 @@ Resources:
           Statement:
             - Effect: Allow
               Action:
-                - mobiletargeting:*
-                - sns:*
+                - ses:*
               Resource: "*"
 
   VerifyAuthChallengeResponse:

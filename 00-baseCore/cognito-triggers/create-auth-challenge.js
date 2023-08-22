@@ -6,16 +6,16 @@
 
 const crypto_secure_random_digit = require("crypto-secure-random-digit")
 const AWS = require("aws-sdk")
-const sns = new AWS.SNS()
+const ses = new AWS.SES()
 
-const TEXT_MSG = "[Serverlesspresso] Your registration code is: "
+const TEXT_MSG = "Your registration code is: "
 
 // Lambda handler
 exports.handler = async (event = {}) => {
   console.log("Event: ", JSON.stringify(event, null, 2))
 
   let passCode
-  const phoneNumber = event.request.userAttributes.phone_number
+  const emailAddress = event.request.userAttributes.email
 
   if (
     (event.request.session &&
@@ -24,14 +24,14 @@ exports.handler = async (event = {}) => {
     event.request.session.length == 0
   ) {
     passCode = crypto_secure_random_digit.randomDigits(6).join("")
-    await sendSMSviaSNS(phoneNumber, passCode)
+    await sendEmailviaSES(emailAddress, passCode)
   } else {
     const previousChallenge = event.request.session.slice(-1)[0]
     passCode = previousChallenge.challengeMetadata.match(/CODE-(\d*)/)[1]
   }
 
   event.response.publicChallengeParameters = {
-    phone: event.request.userAttributes.phone_number,
+    email: event.request.userAttributes.email,
   }
   event.response.privateChallengeParameters = { passCode }
   event.response.challengeMetadata = `CODE-${passCode}`
@@ -41,11 +41,24 @@ exports.handler = async (event = {}) => {
 }
 
 // Send one-time password via SMS
-async function sendSMSviaSNS(phoneNumber, passCode) {
+async function sendEmailviaSES(emailAddress, passCode) {
   const params = {
-    Message: `${TEXT_MSG} ${passCode}`,
-    PhoneNumber: phoneNumber,
+    Source:"spateneder.berlin@gmail.com",
+    // SourceARN: "arn:aws:ses:eu-central-1:552065314648:identity/spateneder.berlin@gmail.com",
+    Destination: {
+        ToAddresses: [emailAddress],
+    },
+    Message: {
+        Subject: {
+            Data: 'Serverlesspresso Registration Code',
+        },
+        Body: {
+            Text: {
+                Data: `${TEXT_MSG} ${passCode}`
+            },
+        },
+    },
   }
-  const result = await sns.publish(params).promise()
-  console.log("SNS result: ", result)
+  const result = await ses.sendEmail(params).promise()
+  console.log("SES result: ", result)
 }
