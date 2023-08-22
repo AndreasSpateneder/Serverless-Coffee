@@ -1,0 +1,13 @@
+{
+    "request": {
+      "userAttributes": {
+        "phone_number": "+49xxxxxxxxxx"
+      },
+      "session": {
+        "length": 0
+      }
+    },
+    "response": {
+      "publicChallengeParameters": ""
+    }
+  }
