@@ -95,7 +95,8 @@ Resources:
     Type: AWS::Serverless::Function # More info about Function Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html
     Properties:
       CodeUri: functions/GenerateHtml/
-      Handler: app.lambdaHandler
+      Handler: pythonApp.lambda_handler #changed from app.lambdaHandler
+      Runtime: python3.9 #added	
       Environment:
         Variables:
           s3Bucket: !Ref JourneyBucket
