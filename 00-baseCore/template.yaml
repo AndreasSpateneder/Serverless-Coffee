@@ -175,7 +175,7 @@ Resources:
           RequireSymbols: false
           RequireUppercase: false
       UsernameAttributes:
-        - email
+        - phone_number
       LambdaConfig:
         CreateAuthChallenge: !GetAtt CreateAuthChallenge.Arn
         DefineAuthChallenge: !GetAtt DefineAuthChallenge.Arn
