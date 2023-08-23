@@ -160,8 +160,10 @@ Resources:
     Properties:
       UserPoolName: ServerlesspressoUserPool
       MfaConfiguration: "OFF"
+      AutoVerifiedAttributes:
+      - email
       Schema:
-        - Name: phone_number
+        - Name: email
           AttributeDataType: String
           Mutable: false
           Required: true
@@ -173,8 +175,7 @@ Resources:
           RequireSymbols: false
           RequireUppercase: false
       UsernameAttributes:
-        - phone_number
-      MfaConfiguration: "OFF"
+        - email
       LambdaConfig:
         CreateAuthChallenge: !GetAtt CreateAuthChallenge.Arn
         DefineAuthChallenge: !GetAtt DefineAuthChallenge.Arn
