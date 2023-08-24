@@ -3,8 +3,6 @@ const attr = require('dynamodb-data-types').AttributeValue;
 exports.handler = async (event) => {
 
 
-console.log(event)
-
     const order = event.body
     console.log('sanitizeOrder: ', order)
       
