@@ -7,7 +7,6 @@ app = FastAPI()
 class Order(BaseModel):
     userId: str
     eventId: str 
-    orderId: str
 
 
 class OrderAction(str, Enum):
@@ -19,7 +18,7 @@ class OrderAction(str, Enum):
 
 @app.on_event("startup")
 async def startup_event():
-
+    order_flows.init_queue()
         
         
 # Create order
@@ -32,16 +31,16 @@ async def process_order(order: Order):
         order_flows.emit_cancel_order_event(order)
         return {"success": False}
     order_flows.reserve_queue()
-    order_flows.emit_workflow_started(order)
+    order_id = order_flows.generate_order_id()
+    order_flows.emit_workflow_started(order, order_id)
     return {"success": True}
     
 
 @app.post("/order/{action}")
-async def order_actions(action: OrderAction):
+async def order_actions(action: OrderAction, order:Order, orderId:int, baristaId: str):
     if OrderAction is OrderAction.make:
-        pass
-    
-    
+        order_flows.emit_making_order_event(order=Order,orderId=orderId, baristaId=baristaId)
+        order_flows.update_make_order(order,baristaId)
 
 
 @app.post("/emit_event")
