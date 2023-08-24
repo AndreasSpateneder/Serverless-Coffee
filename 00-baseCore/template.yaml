@@ -160,10 +160,8 @@ Resources:
     Properties:
       UserPoolName: ServerlesspressoUserPool
       MfaConfiguration: "OFF"
-      AutoVerifiedAttributes:
-      - email
       Schema:
-        - Name: email
+        - Name: phone_number
           AttributeDataType: String
           Mutable: false
           Required: true
