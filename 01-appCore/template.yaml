@@ -617,8 +617,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../backends/5-order-manager/functions/waitingCompletion
-      Handler: app.handler
-      Runtime: nodejs14.x
+      Handler: pythonApp.lambda_handler #changed from app.handler 
+      Runtime: python3.9 # changed from nodejs14.x
       Timeout: 15
       MemorySize: 128
       Environment:
