@@ -4,6 +4,8 @@ import time
 
 dynamodb = boto3.resource("dynamodb")
 order_table = dynamodb.Table("serverlesspresso-order-table")
+
+
 def lambda_handler(event):
     Item = {
         "PK": "orders",
@@ -17,5 +19,5 @@ def lambda_handler(event):
     if event["detail"].get("robot"):
         robot = True
     Item["robot"] = robot
-    order_table.put_events(Item)
+    order_table.put_item(Item=Item)
     return json.dumps(Item)
