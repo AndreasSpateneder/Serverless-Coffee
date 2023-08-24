@@ -588,8 +588,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../backends/5-order-manager/functions/OrderTimedOut
-      Handler: app.handler
-      Runtime: nodejs14.x
+      Handler: app.lambda_handler
+      Runtime: python3.9
       Timeout: 15
       MemorySize: 128
       Environment:
