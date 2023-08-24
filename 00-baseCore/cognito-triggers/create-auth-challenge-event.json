@@ -1,7 +1,7 @@
 {
     "request": {
       "userAttributes": {
-        "email": "xxxxxx@gmail.com"
+        "phone_number": "xxxxxx@gmail.com"
       },
       "session": {
         "length": 0

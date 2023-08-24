@@ -15,7 +15,7 @@ exports.handler = async (event = {}) => {
   console.log("Event: ", JSON.stringify(event, null, 2))
 
   let passCode
-  const emailAddress = event.request.userAttributes.phone_number
+  const emailAddress = event.request.userAttributes.email
 
   if (
     (event.request.session &&
