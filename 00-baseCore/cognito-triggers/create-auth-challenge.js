@@ -31,7 +31,7 @@ exports.handler = async (event = {}) => {
   }
 
   event.response.publicChallengeParameters = {
-    email: event.request.userAttributes.email,
+    email: event.request.userAttributes.phone_number,
   }
   event.response.privateChallengeParameters = { passCode }
   event.response.challengeMetadata = `CODE-${passCode}`
