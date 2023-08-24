@@ -1,15 +1,18 @@
 import boto3
-from fastapi import HTTPException
+from pydantic import BaseModel
 import json
 import time
 from order_api import constants
-from order_api.api import Order
 
 dynamodb = boto3.resource("dynamodb", region_name=constants.aws_region)
 coffe_config_table = dynamodb.Table(constants.coffee_config["config_table"])
 coffe_counting_table = dynamodb.Table(constants.coffee_config["counting_table"])
 coffe_order_table = dynamodb.Table(constants.coffee_config["order_table"])
-events_client = boto3.client("events")
+events_client = boto3.client("events",region_name=constants.aws_region)
+
+class Order(BaseModel):
+    userId: str
+    eventId: str 
 
 
 # returns true if the shop is open
@@ -93,8 +96,7 @@ def generate_order_id():
     
 
 def update_make_order(order: Order, baristaId: str):
-    
-    
+    pass
 
 
 def emit_cancel_order_event(order: Order):

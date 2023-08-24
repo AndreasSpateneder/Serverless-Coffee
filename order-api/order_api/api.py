@@ -1,12 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 import order_api.flows as order_flows
-from pydantic import BaseModel
+from order_api.flows import Order
 from enum import Enum
-app = FastAPI()
 
-class Order(BaseModel):
-    userId: str
-    eventId: str 
+app = FastAPI()
 
 
 class OrderAction(str, Enum):
@@ -19,8 +16,8 @@ class OrderAction(str, Enum):
 @app.on_event("startup")
 async def startup_event():
     order_flows.init_queue()
-        
-        
+
+
 # Create order
 @app.post("/order")
 async def process_order(order: Order):
@@ -34,13 +31,17 @@ async def process_order(order: Order):
     order_id = order_flows.generate_order_id()
     order_flows.emit_workflow_started(order, order_id)
     return {"success": True}
-    
+
 
 @app.post("/order/{action}")
-async def order_actions(action: OrderAction, order:Order, orderId:int, baristaId: str):
+async def order_actions(
+    action: OrderAction, order: Order, orderId: int, baristaId: str
+):
     if OrderAction is OrderAction.make:
-        order_flows.emit_making_order_event(order=Order,orderId=orderId, baristaId=baristaId)
-        order_flows.update_make_order(order,baristaId)
+        order_flows.emit_making_order_event(
+            order=Order, orderId=orderId, baristaId=baristaId
+        )
+        order_flows.update_make_order(order, baristaId)
 
 
 @app.post("/emit_event")
@@ -48,6 +49,8 @@ async def emit_event(detail: dict):
     # Simulate emitting event
     return {"message": "Event Emitted"}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
