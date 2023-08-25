@@ -1,0 +1,14 @@
+Function name,Number of requests per month,Avg duration ms,Memory,Cost (USD)
+SNS,,,,
+serverlesspresso-core-CreateAuthChallenge-X7SZITm3cQta SMS,28000,119,128,"0,02"
+serverlesspresso-core-CreateAuthChallenge-X7SZITm3cQta EMAIL,28000,245,128,"0,02"
+,,,,
+,,,,
+serverlesspresso-GenerateHtml-pFgz3utzQGh8 PYTHON,28000,11,128,"0,01"
+serverlesspresso-GenerateHtml-pFgz3utzQGh8 NODEJS,28000,24,128,"0,01"
+,,,,
+serverlesspresso-FillDatabasesCustomResource-x0ZZwbBA52as PYTHON,28000,473,128,"0,04"
+serverlesspresso-FillDatabasesCustomResource-x0ZZwbBA52as NODEJS,28000,406,128,"0,03"
+,,,,
+serverlesspresso-SanitizeOrderLambda-7ohLcCtH9SXH PYTHON,28000,1,128,"0,01"
+serverlesspresso-SanitizeOrderLambda-7ohLcCtH9SXH NODEJS,28000,3,128,"0,01"
