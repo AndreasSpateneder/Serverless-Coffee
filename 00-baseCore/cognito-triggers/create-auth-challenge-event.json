@@ -1,0 +1,13 @@
+{
+    "request": {
+      "userAttributes": {
+        "phone_number": "xxxxxx@gmail.com"
+      },
+      "session": {
+        "length": 0
+      }
+    },
+    "response": {
+      "publicChallengeParameters": ""
+    }
+  }
