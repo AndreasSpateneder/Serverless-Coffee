@@ -1,0 +1,9 @@
+{
+  "detail": {
+    "orderId": "order-123",
+    "userId": "user-456",
+    "TaskToken": "AAAAKgAAAAIAAAAAAAAAAa0Q6w7yR9X4jZ1YVl3q2XxjQ6n0G1pP8yLsY4hZo0a5vJxkHlJWbGxwz1u0m7nOZc3wFgTQf+5y2k8v9tWd2sVrM7RnqBkLc8U6i7b6NpX9cHJL+q4Iu4E2r9gGmTQOYhD3IjA3fKlLz1+8oUO2xWmEiCv5FtqFvUgZcM7aB9k0w==",
+    "orderNumber": "1001",
+    "eventId": "event-789"
+  }
+}
