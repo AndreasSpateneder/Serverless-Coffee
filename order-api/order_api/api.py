@@ -41,8 +41,8 @@ async def order_actions(
         order_flows.emit_making_order_event(
             order=Order, orderId=orderId, baristaId=baristaId
         )
-        order_flows.update_make_order(order, baristaId)
-
+        order_flows.update_make_order(order,orderId, baristaId)
+        order_flows.release_queue()
 
 @app.post("/emit_event")
 async def emit_event(detail: dict):
