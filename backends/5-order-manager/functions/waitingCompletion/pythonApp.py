@@ -2,7 +2,7 @@
 import boto3
 import json
 import datetime
-
+import os
 dynamodb = boto3.resource("dynamodb")
 order_table = dynamodb.Table("serverlesspresso-order-table")
 event_bridge = boto3.client('events')
@@ -47,8 +47,8 @@ def lambda_handler(event, context):
                     'Message': "A Lambda function is invoked which stores the Step Functions Task Token in an Amazon DynamoDB table. The Task Token is later used to resume the workflow when the barista completes or cancels the order."
                 }),
                 'DetailType': 'OrderManager.WaitingCompletion',
-                'EventBusName': os.environ['BusName'],
-                'Source': os.environ['Source'],
+                'EventBusName': os.environ.get("BusName", "Serverlesspresso"),
+                'Source': os.environ.get('Source',"awsserverlessda.serverlesspresso"),
                 'Time': datetime.datetime.now().timestamp() *1000
             }
         ]
