@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "dynamodb-data-types": "^4.0.1"
+  }
+}
