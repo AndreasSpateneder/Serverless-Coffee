@@ -123,6 +123,7 @@ Resources:
       CodeUri: ./cognito-triggers/
       Handler: define-auth-challenge.handler
       Runtime: nodejs14.x
+      Type: EXPRESS
 
   CreateAuthChallenge:
     Type: AWS::Serverless::Function
@@ -137,6 +138,7 @@ Resources:
               Action:
                 - ses:*
               Resource: "*"
+      Type: EXPRESS
 
   VerifyAuthChallengeResponse:
     Type: AWS::Serverless::Function
@@ -144,6 +146,7 @@ Resources:
       CodeUri: ./cognito-triggers/
       Handler: verify-auth-challenge-response.handler
       Runtime: nodejs14.x
+      Type: EXPRESS
 
   PreSignUp:
     Type: AWS::Serverless::Function
@@ -151,6 +154,7 @@ Resources:
       CodeUri: ./cognito-triggers/
       Handler: pre-sign-up.handler
       Runtime: nodejs14.x
+      Type: EXPRESS
 
 ##########################################
 # Cognito Resources                      #
